@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    {% load staticfiles %}
+    <link href={% static "css/bootstrap.min.css" %} rel="stylesheet">
+    <link href={% static "css/font-awesome.min.css" %} rel="stylesheet">
+</head>
+<body>
+<p>
+    <span>首页</span>
+    <span><a href="/logout/">退出</a></span>
+</p>
+{% csrf_token %}
+<div id="root"></div>
+
+</body>
+<script>
+     window.djangoData={
+        user:{
+            name:"{{ request.user.username }}",
+            id : "{{ request.user.member_user.id }}"
+        },
+        friend:((function(){
+            var f=[]
+            {% for f in friend %}
+                f.push({
+                    name:"{{ f.user }}",
+                    id:"{{ f.id }}"
+                })
+            {% endfor %}
+            return f
+        })()),
+        group:((function(){
+            var f=[]
+            {% for g in group %}
+                f.push({
+                    name:"{{ g.name }}",
+                    id:"{{ g.id }}",
+                })
+            {% endfor %}
+            return f
+        })()),
+    }
+
+</script>
+<script src={% static "js/bundle.js" %}></script>
+</html>

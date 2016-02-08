@@ -1,0 +1,87 @@
+.dialog{
+  width: 600px;
+  height: 400px;
+  position: absolute;
+  left: 40%;
+  top: 100px;
+  margin-left: -300px;
+  border-radius: 3px;
+  box-shadow: 0 0 10px #f2f2f2;
+
+  .dialog-list{
+    width: 150px;
+    height: 100%;
+    overflow-y: auto;
+    position: absolute;
+    left: 0;
+    top: 0;
+
+    .dialog-item{
+      line-height: 40px;
+      border-bottom: 1px solid #f2f2f2;
+      border-right: 1px solid #f2f2f2;
+      text-indent: 40px;
+      position: relative;
+
+      &.active{
+        background: rgb(253,235,168);
+      }
+
+      &:hover .close{
+          display: block;
+          background: orangered;
+          color: #FFFFFF;
+          font-weight: 100;
+      }
+
+      .close{
+        width: 16px;
+        height: 16px;
+        background: #dddddd;
+        border-radius: 8px;
+        position: absolute;
+        right: 10px;
+        top: 12px;
+        line-height: 16px;
+        text-align: center;
+        text-indent: 0;
+        display: none;
+      }
+
+
+      &:first-child{
+        border-top: 1px solid #f2f2f2;
+      }
+    }
+  }
+
+  .dialog-box{
+    width: 450px;
+    height: 100%;
+    left: 150px;
+    top: 0;
+    position: absolute;
+
+    .dialog-message-list{
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 300px;
+    }
+
+    .dialog-textarea{
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 300px;
+      bottom: 0;
+
+
+      textarea{
+        width: 100%;
+        height: 150px;
+      }
+    }
+  }
+
+}
