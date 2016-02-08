@@ -10,31 +10,27 @@ var React = require("react"),
     ReactDOM = require("react-dom");
 
 
+
+
 userMessage = djangoData.friend.map(function(obj){
-    obj.message = []
+    obj.message = [{text:"nice to meet you , "+djangoData.user.name,type:"send"},{text:"nice to meet you too ,"+obj.name,type:"receive"}];
     obj.unread = 0
     obj.type = 'user'
     return obj
 })
+
 groupMessage = djangoData.group.map(function(obj){
-    obj.message = []
+    obj.message = [{text:"nice to meet you , "+djangoData.user.name,type:"send"},{text:"nice to meet you too ,"+obj.name,type:"receive"}];
     obj.unread = 0
     obj.type = 'group'
     return obj
-})
+});
+
 window.root={
     event : _.extend({},Backbone.Events),
-    userMessage : new Backbone.Collection
-}
-
-var Message = Backbone.Model.extend({
-
-    defaults :{
-        message : [],
-        unread : 0
-    }
-})
-
+    userMessage : new Backbone.Collection(userMessage),
+    groupMessage : new Backbone.Collection(groupMessage)
+};
 
 
 

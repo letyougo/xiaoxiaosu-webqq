@@ -41,8 +41,8 @@ var MainPanelBody = React.createClass({
                 </div>
                 <div className="wrapper">
                     <div className="content" ref="content">
-                        <User ref='user'/>
-                        <Group ref='group'/>
+                        <User ref='user' items={root.userMessage}/>
+                        <Group ref='group' items={root.groupMessage}/>
                         <Recent ref='recent'/>
                     </div>
                 </div>

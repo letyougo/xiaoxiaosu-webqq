@@ -5,18 +5,8 @@ var React = require("react"),
 
 var Group = React.createClass({
     getInitialState:function(){
-
-        djangoData.group = djangoData.group.map(function(obj){
-            obj.message = [
-                {text:"hello "+obj.name}
-            ]
-            obj.unread = 0
-            obj.type = 'group'
-            return obj
-        })
-
         return {
-            group:djangoData.group
+            group:this.props.items.toJSON()
         }
     },
 
@@ -77,6 +67,18 @@ var Group = React.createClass({
             group:group
         })
     },
+    componentDidMount:function(){
+        _.extend(this,Backbone.Events)
+
+        var that = this
+        this.listenTo(root.groupMessage,'change',function(m){
+            console.log('change')
+            var c = root.groupMessage.toJSON()
+            that.setState({
+                group:c
+            })
+        })
+    }
 
 })
 

@@ -41,9 +41,16 @@ var Dialog = React.createClass({
 
         var that = this
         this.listenTo(root.event,'add-dialog',function(obj){
-            that.show()
-            that.refs['list'].set(_.extend(obj, {active:"active"}))
-            that.refs['box'].setMessage(obj.message)
+            that.show();
+            var data
+            if(obj.type == 'user'){
+                data = root.userMessage.get(obj.id).toJSON()
+            }else{
+                data = root.groupMessage.get(obj.id).toJSON()
+            }
+
+            that.refs['list'].set(_.extend(data, {active:"active"}))
+            that.refs['box'].setMessage(data.message)
 
         })
     }
@@ -53,9 +60,7 @@ var Dialog = React.createClass({
 var DialogList = React.createClass({
     getInitialState:function(){
         return {
-            items:[
-
-            ]
+            items:[]
         }
     },
 
@@ -185,12 +190,7 @@ var DialogItem = React.createClass({
         var target = ReactDOM.findDOMNode(e.target).tagName.toLowerCase()
 
         if(target == 'li') {
-            root.event.trigger("add-dialog", {
-                name: this.props.name,
-                id: this.props.id,
-                type: this.props.type,
-                message: this.props.message
-            })
+            root.event.trigger("add-dialog", {type:this.props.type,id:this.props.id})
         }
         if(target == 'span'){
             this.props.remove(this.props.type,this.props.id)

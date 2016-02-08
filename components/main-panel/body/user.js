@@ -11,15 +11,9 @@ var User = React.createClass({
 
     getInitialState:function(){
 
-        djangoData.friend = djangoData.friend.map(function(obj){
-            obj.message = [{text:"nice to meet you , "+djangoData.user.name,type:"send"},{text:"nice to meet you too ,"+obj.name,type:"receive"}];
-            obj.unread = 0;
-            obj.type = 'user';
-            return obj
-        });
 
         return {
-            users:djangoData.friend
+            users:this.props.items.toJSON()
         }
     },
 
@@ -28,6 +22,7 @@ var User = React.createClass({
             return obj.id == i
         })
     },
+
 
     render:function(){
         var that = this;
@@ -61,8 +56,8 @@ var User = React.createClass({
             that.dbclick=0
         },500);
         if(that.dbclick==2){
-            root.event.trigger("add-dialog",that.get(i));
-            root.event.trigger("add-recent",that.get(i))
+            root.event.trigger("add-dialog",{"type":"user",id:i});
+            root.event.trigger("add-recent",{"type":"user",id:i})
         }
     },
 
@@ -89,7 +84,15 @@ var User = React.createClass({
     },
 
     componentDidMount:function(){
+        _.extend(this,Backbone.Events)
 
+        var that = this
+        this.listenTo(root.userMessage,'change',function(m){
+            var c = root.userMessage.toJSON()
+            that.setState({
+                users:c
+            })
+        })
     }
 });
 

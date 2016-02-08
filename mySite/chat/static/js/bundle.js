@@ -56,31 +56,27 @@
 	    ReactDOM = __webpack_require__(165);
 
 
+
+
 	userMessage = djangoData.friend.map(function(obj){
-	    obj.message = []
+	    obj.message = [{text:"nice to meet you , "+djangoData.user.name,type:"send"},{text:"nice to meet you too ,"+obj.name,type:"receive"}];
 	    obj.unread = 0
 	    obj.type = 'user'
 	    return obj
 	})
+
 	groupMessage = djangoData.group.map(function(obj){
-	    obj.message = []
+	    obj.message = [{text:"nice to meet you , "+djangoData.user.name,type:"send"},{text:"nice to meet you too ,"+obj.name,type:"receive"}];
 	    obj.unread = 0
 	    obj.type = 'group'
 	    return obj
-	})
+	});
+
 	window.root={
 	    event : _.extend({},Backbone.Events),
-	    userMessage : new Backbone.Collection
-	}
-
-	var Message = Backbone.Model.extend({
-
-	    defaults :{
-	        message : [],
-	        unread : 0
-	    }
-	})
-
+	    userMessage : new Backbone.Collection(userMessage),
+	    groupMessage : new Backbone.Collection(groupMessage)
+	};
 
 
 
@@ -33391,9 +33387,16 @@
 
 	        var that = this
 	        this.listenTo(root.event,'add-dialog',function(obj){
-	            that.show()
-	            that.refs['list'].set(_.extend(obj, {active:"active"}))
-	            that.refs['box'].setMessage(obj.message)
+	            that.show();
+	            var data
+	            if(obj.type == 'user'){
+	                data = root.userMessage.get(obj.id).toJSON()
+	            }else{
+	                data = root.groupMessage.get(obj.id).toJSON()
+	            }
+
+	            that.refs['list'].set(_.extend(data, {active:"active"}))
+	            that.refs['box'].setMessage(data.message)
 
 	        })
 	    }
@@ -33403,9 +33406,7 @@
 	var DialogList = React.createClass({displayName: "DialogList",
 	    getInitialState:function(){
 	        return {
-	            items:[
-
-	            ]
+	            items:[]
 	        }
 	    },
 
@@ -33535,12 +33536,7 @@
 	        var target = ReactDOM.findDOMNode(e.target).tagName.toLowerCase()
 
 	        if(target == 'li') {
-	            root.event.trigger("add-dialog", {
-	                name: this.props.name,
-	                id: this.props.id,
-	                type: this.props.type,
-	                message: this.props.message
-	            })
+	            root.event.trigger("add-dialog", {type:this.props.type,id:this.props.id})
 	        }
 	        if(target == 'span'){
 	            this.props.remove(this.props.type,this.props.id)
@@ -33810,8 +33806,8 @@
 	                ), 
 	                React.createElement("div", {className: "wrapper"}, 
 	                    React.createElement("div", {className: "content", ref: "content"}, 
-	                        React.createElement(User, {ref: "user"}), 
-	                        React.createElement(Group, {ref: "group"}), 
+	                        React.createElement(User, {ref: "user", items: root.userMessage}), 
+	                        React.createElement(Group, {ref: "group", items: root.groupMessage}), 
 	                        React.createElement(Recent, {ref: "recent"})
 	                    )
 	                )
@@ -33925,15 +33921,9 @@
 
 	    getInitialState:function(){
 
-	        djangoData.friend = djangoData.friend.map(function(obj){
-	            obj.message = [{text:"nice to meet you , "+djangoData.user.name,type:"send"},{text:"nice to meet you too ,"+obj.name,type:"receive"}];
-	            obj.unread = 0;
-	            obj.type = 'user';
-	            return obj
-	        });
 
 	        return {
-	            users:djangoData.friend
+	            users:this.props.items.toJSON()
 	        }
 	    },
 
@@ -33942,6 +33932,7 @@
 	            return obj.id == i
 	        })
 	    },
+
 
 	    render:function(){
 	        var that = this;
@@ -33975,8 +33966,8 @@
 	            that.dbclick=0
 	        },500);
 	        if(that.dbclick==2){
-	            root.event.trigger("add-dialog",that.get(i));
-	            root.event.trigger("add-recent",that.get(i))
+	            root.event.trigger("add-dialog",{"type":"user",id:i});
+	            root.event.trigger("add-recent",{"type":"user",id:i})
 	        }
 	    },
 
@@ -34003,7 +33994,15 @@
 	    },
 
 	    componentDidMount:function(){
+	        _.extend(this,Backbone.Events)
 
+	        var that = this
+	        this.listenTo(root.userMessage,'change',function(m){
+	            var c = root.userMessage.toJSON()
+	            that.setState({
+	                users:c
+	            })
+	        })
 	    }
 	});
 
@@ -34021,18 +34020,8 @@
 
 	var Group = React.createClass({displayName: "Group",
 	    getInitialState:function(){
-
-	        djangoData.group = djangoData.group.map(function(obj){
-	            obj.message = [
-	                {text:"hello "+obj.name}
-	            ]
-	            obj.unread = 0
-	            obj.type = 'group'
-	            return obj
-	        })
-
 	        return {
-	            group:djangoData.group
+	            group:this.props.items.toJSON()
 	        }
 	    },
 
@@ -34093,6 +34082,18 @@
 	            group:group
 	        })
 	    },
+	    componentDidMount:function(){
+	        _.extend(this,Backbone.Events)
+
+	        var that = this
+	        this.listenTo(root.groupMessage,'change',function(m){
+	            console.log('change')
+	            var c = root.groupMessage.toJSON()
+	            that.setState({
+	                group:c
+	            })
+	        })
+	    }
 
 	})
 
@@ -34123,7 +34124,10 @@
 	        console.log(this.state.items)
 	        var nodes = this.state.items.map(function(item){
 	            return (
-	                React.createElement("p", null, 
+	                React.createElement("p", {
+	                    onClick: that.handleClick.bind(that,{type:item.type,id:item.id}), 
+	                    ref: item.type+"-item-"+item.id
+	                    }, 
 	                    React.createElement("i", {className: "fa fa-user"}), 
 	                    " ", 
 	                    item.name
@@ -34137,22 +34141,48 @@
 	            )
 	        )
 	    },
-	    handleClick:function(){
-	        root.event.trigger({type:this.props.type,id:this.props.id,message:this.props.message})
+	    handleClick:function(obj,e){
+
+	        if(this.picked){
+	            this.picked.removeClass("active");
+	        }
+	        this.picked = $(ReactDOM.findDOMNode(this.refs[obj.type+'-item-'+obj.id]) ).addClass("active");
+
+
+	        var that = this;
+
+	        that.dbclick = that.dbclick ? that.dbclick : 0;
+
+	        that.dbclick++;
+	        setTimeout(function(){
+	            that.dbclick=0
+	        },500);
+	        if(that.dbclick==2){
+	            root.event.trigger('add-dialog',{type:obj.type,id:obj.id})
+	        }
+
 	    },
 	    componentDidMount:function(){
 	        _.extend(this,Backbone.Events)
 
 	        var that = this
 	        this.listenTo(root.event,'add-recent',function(obj){
-	            console.log(obj)
-	            var t = _.find(that.state.items,function(item){
-	                return obj.type = item.type && obj.id == item.id
-	            });
+	            var data,t
+
+	            t = _.find(this.state.items,function(item){
+	                return obj.type == item.type && obj.id == item.id
+	            })
+
+	            if(obj.type == 'user'){
+	                data = root.userMessage.get(obj.id).toJSON()
+	            }else{
+	                data = root.groupMessage.get(obj.id).toJSON()
+	            }
+
 
 	            if(!t){
 	                var items = that.state.items
-	                items.push(obj)
+	                items.push(data)
 
 	                that.setState({
 	                    items:items
