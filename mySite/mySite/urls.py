@@ -19,11 +19,18 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.conf.urls.static import static
 from settings import MEDIA_ROOT, MEDIA_URL
 
+
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
     url(r'^home/','chat.views.home'),
+    url(r'^send_message/','chat.views.send_message'),
+    url(r'^get_message/$','chat.views.get_message'),
     url(r'^login/$', 'django.contrib.auth.views.login', {'template_name': 'login.html'}),
     url(r'^logout/$', 'django.contrib.auth.views.logout', {'template_name': 'logout.html'}),
+
+    url(r'^get_member','chat.views.get_member'),
+    url(r'^get_group','chat.views.get_group'),
+    url(r'^send_add','chat.views.send_add')
 ]
 
 urlpatterns += staticfiles_urlpatterns()

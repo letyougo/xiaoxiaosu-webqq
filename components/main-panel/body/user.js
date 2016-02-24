@@ -9,13 +9,6 @@ var React = require("react"),
 
 var User = React.createClass({
 
-    getInitialState:function(){
-
-
-        return {
-            users:this.props.items.toJSON()
-        }
-    },
 
     get:function(i){
         return _.find(this.state.users,function(obj){
@@ -26,9 +19,13 @@ var User = React.createClass({
 
     render:function(){
         var that = this;
-        var nodes = this.state.users.map(function(g){
+        var nodes = this.props.user.map(function(g){
             return (
-                <p  onClick={that.pick.bind(that,g.id)} ref={'user-item-'+g.id} key={'user-item-'+g.id}><i className="fa fa-user"></i>&nbsp;{g.name}</p>
+                <p  className={g.active} onClick={that.pick.bind(that,g.id)} ref={'user-item-'+g.id} key={'user-item-'+g.id}>
+                    <i style={{backgroundImage:'url('+root.baseURL+g.logo+')'}}></i>&nbsp;
+                    <span>{g.name}</span>&nbsp;&nbsp;
+                    <label>{g.intro}</label>
+                </p>
             )
         });
 
@@ -40,13 +37,7 @@ var User = React.createClass({
         )
     },
 
-    pick:function(i){
-        if(this.picked){
-            this.picked.removeClass("active");
-        }
-        this.picked = $(ReactDOM.findDOMNode(this.refs['user-item-'+i]) ).addClass("active");
-
-
+    pick:function(id){
         var that = this;
 
         that.dbclick = that.dbclick ? that.dbclick : 0;
@@ -56,42 +47,17 @@ var User = React.createClass({
             that.dbclick=0
         },500);
         if(that.dbclick==2){
-            root.event.trigger("add-dialog",{"type":"user",id:i});
-            root.event.trigger("add-recent",{"type":"user",id:i})
+            var model = root.userMessage.get(id)
+            root.to.set(model.toJSON())
         }
     },
 
-    getMessage:function(mes){
-        var users = this.state.users.map(function(user){
-            var friend = _.find(mes,function(f){
-                return f.id == user.id && f.type == user.type
-            });
-            if(friend){
-                user.message = user.message.concat(friend.message);
-                user.unread = user.unread + user.message.length;
-            }
-
-            return user
-        });
-        root.event.trigger("dialog-receive-data",users)
-        this.setState({
-            users:users
-        })
-    },
-
-    passData:function(){
-
-    },
 
     componentDidMount:function(){
         _.extend(this,Backbone.Events)
-
         var that = this
         this.listenTo(root.userMessage,'change',function(m){
-            var c = root.userMessage.toJSON()
-            that.setState({
-                users:c
-            })
+            console.log('user.js liston list change')
         })
     }
 });

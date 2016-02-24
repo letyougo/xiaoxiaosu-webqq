@@ -12,7 +12,7 @@ var Dialog = React.createClass({
 
     getInitialState:function(){
         return {
-            display:"none"
+            display:"none",
         }
     },
 
@@ -25,33 +25,22 @@ var Dialog = React.createClass({
             </div>
         )
     },
-    show:function(){
-        this.setState({
-            display:"block"
-        })
-    },
-    hide:function(){
-        this.setState({
-            display:"none"
-        })
-    },
 
     componentDidMount:function(){
         _.extend(this,Backbone.Events)
 
         var that = this
-        this.listenTo(root.event,'add-dialog',function(obj){
-            that.show();
-            var data
-            if(obj.type == 'user'){
-                data = root.userMessage.get(obj.id).toJSON()
+
+        this.listenTo(root.dialogList,'add remove',function(model){
+            if(root.dialogList.length>0){
+                that.setState({
+                    display:"block"
+                })
             }else{
-                data = root.groupMessage.get(obj.id).toJSON()
+                that.setState({
+                    display:"none"
+                })
             }
-
-            that.refs['list'].set(_.extend(data, {active:"active"}))
-            that.refs['box'].setMessage(data.message)
-
         })
     }
 });
@@ -60,7 +49,7 @@ var Dialog = React.createClass({
 var DialogList = React.createClass({
     getInitialState:function(){
         return {
-            items:[]
+            items:root.dialogList.toJSON()
         }
     },
 
@@ -75,10 +64,8 @@ var DialogList = React.createClass({
                     message={item.message}
                     key={'item'+i}
                     ref={'item-'+item.type+"-"+item.id}
-                    remove={that.remove}
-                    set={that.set}
                     active={item.active}
-                    parent={that}
+                    logo={item.logo}
                     />
             )
         });
@@ -87,81 +74,13 @@ var DialogList = React.createClass({
         )
     },
 
-    receive:function(mes){
-        var that = this
-
-        this.state.items.map(function(item){
-            var obj = _.find(mes,function(m){
-                return m.type == item.type && m.id == item.id
-            })
-            if(obj){
-                item.message = item.message.concat(obj.message)
-                item.unread = item.unread*1 + 1
-            }
-
-            return item
-        })
-    },
-
-    remove:function(type,id){
-        var item = _.find(this.state.items,function(obj){
-            return obj.type == type && obj.id == id
-        })
-        var items = _.without(this.state.items,item)
-
-        this.setState({
-            items:items
-        })
-    },
-
-    set:function(obj,box){
-        var item = _.find(this.state.items,function(item){
-            return item.id == obj.id && item.type == obj.type
-        })
-
-        //新打开的聊天窗口
-        if(!item){
-            var items =this.state.items.map(function(obj){
-                obj.active=" "
-                return obj
-            })
-            items.unshift(_.extend(obj,{"active":"active"}))
-
-            //已经打开了窗口，从该窗口切换回去
-        }else{
-            var items =this.state.items.map(function(item){
-                if(item.type == obj.type && item.id == obj.id){
-                    item.active="active"
-                }else{
-                    item.active=" "
-                }
-                return item
-            })
-            this.pickedItem = this.refs['item-'+obj.type+"-"+obj.id]
-        }
-
-        this.setState({
-            items:items
-        })
-    },
-
     componentDidMount:function(){
         _.extend(this,Backbone.Events)
 
         var that = this
-        this.listenTo(root.event,'receive-data',function(list){
-            var items = that.state.items.map(function(item){
-                var l =  _.find(list,function(obj){
-                    return item.type == obj.type && item.id == obj.id
-                })
-                if(l){
-                    item.message = item.message.concat(l.message)
-                }
-
-                return l
-            })
+        this.listenTo(root.dialogList,'add remove change reset',function(){
             that.setState({
-                items : items
+                items:root.dialogList.toJSON()
             })
         })
     }
@@ -173,86 +92,97 @@ var DialogItem = React.createClass({
         var that=this
         return (
             <li className={"dialog-item "+that.props.active} onClick={that.set}>
+                <i style={{backgroundImage:'url('+root.baseURL+that.props.logo+')'}}></i>&nbsp;&nbsp;
                 {this.props.name}
                 <span className="fa fa-close close"></span>
             </li>
         )
     },
 
-    getName:function(){
-        return this.props.name
-    },
-    componentDidMount:function(){
-        this.props.parent.pickedItem=this
-    },
     set:function(e){
+        var type = this.props.type,
+            id = this.props.id;
 
-        var target = ReactDOM.findDOMNode(e.target).tagName.toLowerCase()
+        var model = root[type+"Message"].get(id);
+        root.to.set(model.toJSON())
 
-        if(target == 'li') {
-            root.event.trigger("add-dialog", {type:this.props.type,id:this.props.id})
-        }
-        if(target == 'span'){
-            this.props.remove(this.props.type,this.props.id)
-
-            var activeItem = _.find(this.props.parent.state.items,function(obj){
-                return obj.active == 'active'
-            })
-
-            if(activeItem){
-                activeItem.id == this.props.id && root.event.trigger('dialog-message-clear')
-            }
-
-        }
     }
 });
 
 var DialogBox = React.createClass({
     getInitialState:function(){
         return {
-            message:[]
+            to:root.to.toJSON()
         }
     },
-    render:function(){
-        var that = this
 
-        var nodes = this.state.message.map(function(m){
-            return(
-                <p>
-                    <span>{m.name}</span>
-                    <span>{m.text}</span>
-                </p>
-            )
-        })
+    render:function(){
+        var that = this;
+
         return (
             <div className="dialog-box">
-                <Message message={that.state.message}/>
+                <Message message={that.state.to.message}/>
                 <div className="dialog-textarea">
-                    <textarea></textarea>
+                    <textarea onKeyDown={this.keyDown} ref='area'></textarea>
                 </div>
             </div>
         )
     },
-    setMessage:function(mes){
-        this.setState({
-            message:mes
-        })
+
+     keyDown:function(e){
+        var that=this
+
+        if(e.which == 13){
+
+            var data = {
+                from_name:root.from.get("name"),
+                from_id : root.from.get("id"),
+                to_name:root.to.get("name"),
+                to_id:root.to.get("_id"),
+                type:root.to.get("type"),
+                key:root.to.get("id"),
+                logo:root.from.get("logo"),
+                text:ReactDOM.findDOMNode(this.refs['area']).value.trim()
+            }
+            data[root.csrfKey] = root.csrfValue
+
+
+            $.ajax({
+                url:root.baseURL+"/send_message/",
+                data:data,
+                type:"POST",
+                dataType:"json",
+                success:function(response){
+                    root[root.to.get('type')+'Message'].receiveMessage([{
+                        text:ReactDOM.findDOMNode(that.refs['area']).value.trim(),
+                        messageType:'send',
+                        name:root.from.get("name"),
+                        logo:root.from.get("logo"),
+                        to_id:root.to.get("id")
+                    }])
+                    ReactDOM.findDOMNode(that.refs.area).value=""
+                }
+            })
+        }
     },
+
     componentDidMount:function(){
         _.extend(this,Backbone.Events)
 
         var that = this
-        this.listenTo(root.event,'dialog-message-clear',function(){
-            that.setMessage([])
+        this.listenTo(root.to,'change',function(){
+            that.setState({
+                to:root.to.toJSON()
+            })
         })
     }
 });
 var Message = React.createClass({
     render:function(){
-        var nodes = this.props.message.map(function(m){
+        var nodes = this.props.message.map(function(m,i){
             return (
-                <p>
-                    <span>{m.name}</span>
+                <p key={'message-'+i} className={'message-item-'+m.messageType}>
+                     <i style={{backgroundImage:'url('+root.baseURL+m.logo+')'}}></i>&nbsp;&nbsp;
                     <span>{m.text}</span>
                 </p>
             )

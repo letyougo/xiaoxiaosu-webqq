@@ -59,43 +59,150 @@
 
 
 	userMessage = djangoData.friend.map(function(obj){
-	    obj.message = [{text:"nice to meet you , "+djangoData.user.name,type:"send"},{text:"nice to meet you too ,"+obj.name,type:"receive"}];
-	    obj.unread = 0
+	    obj.message = [];
+	    obj.unread = 0;
+	    obj._id = obj.id;
 	    obj.type = 'user'
-	    return obj
+	    obj.id = 'user-'+obj.id;
+	    obj.active = ""
+	    return obj;
 	})
 
 	groupMessage = djangoData.group.map(function(obj){
-	    obj.message = [{text:"nice to meet you , "+djangoData.user.name,type:"send"},{text:"nice to meet you too ,"+obj.name,type:"receive"}];
-	    obj.unread = 0
-	    obj.type = 'group'
+	    obj.message = [];
+	    obj.unread = 0;
+	    obj._id = obj.id;
+	    obj.type = 'group';
+	    obj.id = 'group-'+obj.id;
+	    obj.active = ""
 	    return obj
 	});
 
+	var C = Backbone.Collection.extend({
+	    receiveMessage:function(list){
+	        var that = this
+	        _.each(list,function(obj){
+	            var model = that.get(obj.to_id);
+	            var initMessage = model.get("message");
+
+	            var recMessage = initMessage.concat([{text:obj.text,messageType:obj.messageType,name:obj.name,logo:obj.logo}])
+
+	            model.set('message',recMessage)
+	        })
+	    }
+	})
+
+
 	window.root={
 	    event : _.extend({},Backbone.Events),
-	    userMessage : new Backbone.Collection(userMessage),
-	    groupMessage : new Backbone.Collection(groupMessage)
-	};
+	    from:new Backbone.Model(djangoData.user),
+	    to:new Backbone.Model({name:"",id:"",message:[]}),
+	    userMessage : new C(userMessage),
+	    groupMessage : new C(groupMessage),
+	    dialogList : new Backbone.Collection(),
+	    userAddRequest:new Backbone.Collection([]),
+	    userAddAccept:new Backbone.Collection([]),
+	    baseURL:"http://localhost:8000",
+	    csrfKey :"csrfmiddlewaretoken",
+	    csrfValue :$('input[name=csrfmiddlewaretoken]').val(),
+	    basicMixin:{
+	        getInitialState:function(){
+	            return {
+	                display:"none"
+	            }
+	        },
+	        show:function(){
+	            this.setState({
+	                display:"block"
+	            })
+	        },
+	        hide:function(){
+	            this.setState({
+	                display:"none"
+	            })
+	        },
+	        componentDidMount:function(){
+	            _.extend(this,Backbone.Events)
+	        }
+	    }
+	}
+
+	root.userMessage.on("change",function(model){
+	    if(model.get("type") != 'user'){
+	        return
+	    }
+	    var id = root.to.get("id");
+	    var m = this.get(id)
+	    root.to.set("message",m.get("message"))
+	})
+
+	root.groupMessage.on("change",function(model){
+	    if(model.get("type") !='group'){
+	        return
+	    }
+	    var id = root.to.get("id"),
+	        m = this.get(id)
+	    root.to.set("message",m.get("message"))
+	})
+
+	root.to.on('change',function(){
+	    var obj = this.toJSON(),
+	        type = obj.type,
+	        id = obj.id,
+	        model_from = root[type+"Message"].get(id),
+	        model_to = root.dialogList.get(id)
+	    console.log(model_from.toJSON())
+	    if(!model_to){
+	        root.dialogList.add(model_from)
+	    }
+	    root.dialogList.each(function(m){
+	        m.set("active",'')
+	    })
+	    model_from.set("active",'active')
+	})
 
 
 
+	var Dialog = __webpack_require__(166),
+	    MainPanel = __webpack_require__(169),
+	    SearchPanel = __webpack_require__(178),
+	    AddPanel = __webpack_require__(183)
 
+	var App = React.createClass({displayName: "App",
+	    render:function(){
+	        var that = this
+	        return (
+	            React.createElement("div", {className: "app"}, 
+	                React.createElement(MainPanel, {ref: "main"}), 
+	                React.createElement(Dialog, {ref: "dialog"}), 
+	                React.createElement(SearchPanel, {ref: "search"}), 
+	                React.createElement(AddPanel, {ref: "add"})
+	            )
+	        )
+	    },
+	    componentDidMount:function(){
+	        root.app = this
+	    },
+	    show:function(com){
+	        this.refs[com].show && this.refs[com].show()
+	    },
+	    hide:function(com){
+	        this.refs[com].hide && this.refs[com].hide()
+	    }
 
-	var Dialog = __webpack_require__(166);
+	})
 
-	var MainPanel = __webpack_require__(169);
-
-
-
-
-
-	ReactDOM.render(
-	    React.createElement("div", {className: "app"}, 
-	        React.createElement(MainPanel, null), 
-	        React.createElement(Dialog, null)
-	    ),document.getElementById("root"));
-
+	var test = Backbone.View.extend({
+	    initialize:function(){
+	        var name = "surui"
+	        this.$el.html(
+	            React.createElement("div", null, "hello world")
+	        )
+	    }
+	})
+	var t = new test()
+	ReactDOM.render(React.createElement(App, null),document.getElementById("root"));
+	$("#root").append(t.$el)
 
 /***/ },
 /* 1 */
@@ -33358,7 +33465,7 @@
 
 	    getInitialState:function(){
 	        return {
-	            display:"none"
+	            display:"none",
 	        }
 	    },
 
@@ -33371,33 +33478,22 @@
 	            )
 	        )
 	    },
-	    show:function(){
-	        this.setState({
-	            display:"block"
-	        })
-	    },
-	    hide:function(){
-	        this.setState({
-	            display:"none"
-	        })
-	    },
 
 	    componentDidMount:function(){
 	        _.extend(this,Backbone.Events)
 
 	        var that = this
-	        this.listenTo(root.event,'add-dialog',function(obj){
-	            that.show();
-	            var data
-	            if(obj.type == 'user'){
-	                data = root.userMessage.get(obj.id).toJSON()
+
+	        this.listenTo(root.dialogList,'add remove',function(model){
+	            if(root.dialogList.length>0){
+	                that.setState({
+	                    display:"block"
+	                })
 	            }else{
-	                data = root.groupMessage.get(obj.id).toJSON()
+	                that.setState({
+	                    display:"none"
+	                })
 	            }
-
-	            that.refs['list'].set(_.extend(data, {active:"active"}))
-	            that.refs['box'].setMessage(data.message)
-
 	        })
 	    }
 	});
@@ -33406,7 +33502,7 @@
 	var DialogList = React.createClass({displayName: "DialogList",
 	    getInitialState:function(){
 	        return {
-	            items:[]
+	            items:root.dialogList.toJSON()
 	        }
 	    },
 
@@ -33421,10 +33517,8 @@
 	                    message: item.message, 
 	                    key: 'item'+i, 
 	                    ref: 'item-'+item.type+"-"+item.id, 
-	                    remove: that.remove, 
-	                    set: that.set, 
 	                    active: item.active, 
-	                    parent: that}
+	                    logo: item.logo}
 	                    )
 	            )
 	        });
@@ -33433,81 +33527,13 @@
 	        )
 	    },
 
-	    receive:function(mes){
-	        var that = this
-
-	        this.state.items.map(function(item){
-	            var obj = _.find(mes,function(m){
-	                return m.type == item.type && m.id == item.id
-	            })
-	            if(obj){
-	                item.message = item.message.concat(obj.message)
-	                item.unread = item.unread*1 + 1
-	            }
-
-	            return item
-	        })
-	    },
-
-	    remove:function(type,id){
-	        var item = _.find(this.state.items,function(obj){
-	            return obj.type == type && obj.id == id
-	        })
-	        var items = _.without(this.state.items,item)
-
-	        this.setState({
-	            items:items
-	        })
-	    },
-
-	    set:function(obj,box){
-	        var item = _.find(this.state.items,function(item){
-	            return item.id == obj.id && item.type == obj.type
-	        })
-
-	        //新打开的聊天窗口
-	        if(!item){
-	            var items =this.state.items.map(function(obj){
-	                obj.active=" "
-	                return obj
-	            })
-	            items.unshift(_.extend(obj,{"active":"active"}))
-
-	            //已经打开了窗口，从该窗口切换回去
-	        }else{
-	            var items =this.state.items.map(function(item){
-	                if(item.type == obj.type && item.id == obj.id){
-	                    item.active="active"
-	                }else{
-	                    item.active=" "
-	                }
-	                return item
-	            })
-	            this.pickedItem = this.refs['item-'+obj.type+"-"+obj.id]
-	        }
-
-	        this.setState({
-	            items:items
-	        })
-	    },
-
 	    componentDidMount:function(){
 	        _.extend(this,Backbone.Events)
 
 	        var that = this
-	        this.listenTo(root.event,'receive-data',function(list){
-	            var items = that.state.items.map(function(item){
-	                var l =  _.find(list,function(obj){
-	                    return item.type == obj.type && item.id == obj.id
-	                })
-	                if(l){
-	                    item.message = item.message.concat(l.message)
-	                }
-
-	                return l
-	            })
+	        this.listenTo(root.dialogList,'add remove change reset',function(){
 	            that.setState({
-	                items : items
+	                items:root.dialogList.toJSON()
 	            })
 	        })
 	    }
@@ -33519,86 +33545,97 @@
 	        var that=this
 	        return (
 	            React.createElement("li", {className: "dialog-item "+that.props.active, onClick: that.set}, 
+	                React.createElement("i", {style: {backgroundImage:'url('+root.baseURL+that.props.logo+')'}}), "  ", 
 	                this.props.name, 
 	                React.createElement("span", {className: "fa fa-close close"})
 	            )
 	        )
 	    },
 
-	    getName:function(){
-	        return this.props.name
-	    },
-	    componentDidMount:function(){
-	        this.props.parent.pickedItem=this
-	    },
 	    set:function(e){
+	        var type = this.props.type,
+	            id = this.props.id;
 
-	        var target = ReactDOM.findDOMNode(e.target).tagName.toLowerCase()
+	        var model = root[type+"Message"].get(id);
+	        root.to.set(model.toJSON())
 
-	        if(target == 'li') {
-	            root.event.trigger("add-dialog", {type:this.props.type,id:this.props.id})
-	        }
-	        if(target == 'span'){
-	            this.props.remove(this.props.type,this.props.id)
-
-	            var activeItem = _.find(this.props.parent.state.items,function(obj){
-	                return obj.active == 'active'
-	            })
-
-	            if(activeItem){
-	                activeItem.id == this.props.id && root.event.trigger('dialog-message-clear')
-	            }
-
-	        }
 	    }
 	});
 
 	var DialogBox = React.createClass({displayName: "DialogBox",
 	    getInitialState:function(){
 	        return {
-	            message:[]
+	            to:root.to.toJSON()
 	        }
 	    },
-	    render:function(){
-	        var that = this
 
-	        var nodes = this.state.message.map(function(m){
-	            return(
-	                React.createElement("p", null, 
-	                    React.createElement("span", null, m.name), 
-	                    React.createElement("span", null, m.text)
-	                )
-	            )
-	        })
+	    render:function(){
+	        var that = this;
+
 	        return (
 	            React.createElement("div", {className: "dialog-box"}, 
-	                React.createElement(Message, {message: that.state.message}), 
+	                React.createElement(Message, {message: that.state.to.message}), 
 	                React.createElement("div", {className: "dialog-textarea"}, 
-	                    React.createElement("textarea", null)
+	                    React.createElement("textarea", {onKeyDown: this.keyDown, ref: "area"})
 	                )
 	            )
 	        )
 	    },
-	    setMessage:function(mes){
-	        this.setState({
-	            message:mes
-	        })
+
+	     keyDown:function(e){
+	        var that=this
+
+	        if(e.which == 13){
+
+	            var data = {
+	                from_name:root.from.get("name"),
+	                from_id : root.from.get("id"),
+	                to_name:root.to.get("name"),
+	                to_id:root.to.get("_id"),
+	                type:root.to.get("type"),
+	                key:root.to.get("id"),
+	                logo:root.from.get("logo"),
+	                text:ReactDOM.findDOMNode(this.refs['area']).value.trim()
+	            }
+	            data[root.csrfKey] = root.csrfValue
+
+
+	            $.ajax({
+	                url:root.baseURL+"/send_message/",
+	                data:data,
+	                type:"POST",
+	                dataType:"json",
+	                success:function(response){
+	                    root[root.to.get('type')+'Message'].receiveMessage([{
+	                        text:ReactDOM.findDOMNode(that.refs['area']).value.trim(),
+	                        messageType:'send',
+	                        name:root.from.get("name"),
+	                        logo:root.from.get("logo"),
+	                        to_id:root.to.get("id")
+	                    }])
+	                    ReactDOM.findDOMNode(that.refs.area).value=""
+	                }
+	            })
+	        }
 	    },
+
 	    componentDidMount:function(){
 	        _.extend(this,Backbone.Events)
 
 	        var that = this
-	        this.listenTo(root.event,'dialog-message-clear',function(){
-	            that.setMessage([])
+	        this.listenTo(root.to,'change',function(){
+	            that.setState({
+	                to:root.to.toJSON()
+	            })
 	        })
 	    }
 	});
 	var Message = React.createClass({displayName: "Message",
 	    render:function(){
-	        var nodes = this.props.message.map(function(m){
+	        var nodes = this.props.message.map(function(m,i){
 	            return (
-	                React.createElement("p", null, 
-	                    React.createElement("span", null, m.name), 
+	                React.createElement("p", {key: 'message-'+i, className: 'message-item-'+m.messageType}, 
+	                     React.createElement("i", {style: {backgroundImage:'url('+root.baseURL+m.logo+')'}}), "  ", 
 	                    React.createElement("span", null, m.text)
 	                )
 	            )
@@ -33648,7 +33685,7 @@
 
 
 	// module
-	exports.push([module.id, ".dialog {\n  width: 600px;\n  height: 400px;\n  position: absolute;\n  left: 40%;\n  top: 100px;\n  margin-left: -300px;\n  border-radius: 3px;\n  box-shadow: 0 0 10px #f2f2f2;\n}\n.dialog .dialog-list {\n  width: 150px;\n  height: 100%;\n  overflow-y: auto;\n  position: absolute;\n  left: 0;\n  top: 0;\n}\n.dialog .dialog-list .dialog-item {\n  line-height: 40px;\n  border-bottom: 1px solid #f2f2f2;\n  border-right: 1px solid #f2f2f2;\n  text-indent: 40px;\n  position: relative;\n}\n.dialog .dialog-list .dialog-item.active {\n  background: #fdeba8;\n}\n.dialog .dialog-list .dialog-item:hover .close {\n  display: block;\n  background: orangered;\n  color: #FFFFFF;\n  font-weight: 100;\n}\n.dialog .dialog-list .dialog-item .close {\n  width: 16px;\n  height: 16px;\n  background: #dddddd;\n  border-radius: 8px;\n  position: absolute;\n  right: 10px;\n  top: 12px;\n  line-height: 16px;\n  text-align: center;\n  text-indent: 0;\n  display: none;\n}\n.dialog .dialog-list .dialog-item:first-child {\n  border-top: 1px solid #f2f2f2;\n}\n.dialog .dialog-box {\n  width: 450px;\n  height: 100%;\n  left: 150px;\n  top: 0;\n  position: absolute;\n}\n.dialog .dialog-box .dialog-message-list {\n  position: absolute;\n  left: 0;\n  right: 0;\n  height: 300px;\n}\n.dialog .dialog-box .dialog-textarea {\n  position: absolute;\n  left: 0;\n  right: 0;\n  top: 300px;\n  bottom: 0;\n}\n.dialog .dialog-box .dialog-textarea textarea {\n  width: 100%;\n  height: 150px;\n}\n", ""]);
+	exports.push([module.id, ".dialog {\n  width: 600px;\n  height: 400px;\n  position: absolute;\n  left: 40%;\n  top: 100px;\n  margin-left: -300px;\n  border-radius: 3px;\n  box-shadow: 0 0 10px #dddddd;\n}\n.dialog .dialog-list {\n  width: 150px;\n  height: 100%;\n  overflow-y: auto;\n  position: absolute;\n  border-right: 1px solid #dddddd;\n  left: 0;\n  top: 0;\n}\n.dialog .dialog-list .dialog-item {\n  line-height: 40px;\n  border-bottom: 1px solid #f2f2f2;\n  border-right: 1px solid #f2f2f2;\n  position: relative;\n}\n.dialog .dialog-list .dialog-item i {\n  width: 30px;\n  height: 30px;\n  display: inline-block;\n  background-size: cover;\n  background-position: center;\n  background-repeat: no-repeat;\n  vertical-align: middle;\n}\n.dialog .dialog-list .dialog-item.active {\n  background: #fdeba8;\n}\n.dialog .dialog-list .dialog-item:hover .close {\n  display: block;\n  background: orangered;\n  color: #FFFFFF;\n  font-weight: 100;\n}\n.dialog .dialog-list .dialog-item .close {\n  width: 16px;\n  height: 16px;\n  background: #dddddd;\n  border-radius: 8px;\n  position: absolute;\n  right: 10px;\n  top: 12px;\n  line-height: 16px;\n  text-align: center;\n  text-indent: 0;\n  display: none;\n}\n.dialog .dialog-list .dialog-item:first-child {\n  border-top: 1px solid #f2f2f2;\n}\n.dialog .dialog-box {\n  width: 450px;\n  height: 100%;\n  left: 150px;\n  top: 0;\n  background: #FFFFFF;\n  position: absolute;\n}\n.dialog .dialog-box .dialog-message-list {\n  position: absolute;\n  left: 0;\n  right: 0;\n  height: 300px;\n  padding: 20px;\n  overflow: auto;\n}\n.dialog .dialog-box .dialog-message-list p {\n  margin-bottom: 5px;\n}\n.dialog .dialog-box .dialog-message-list p i {\n  width: 30px;\n  height: 30px;\n  display: inline-block;\n  background-size: cover;\n  background-position: center;\n  background-repeat: no-repeat;\n  vertical-align: middle;\n}\n.dialog .dialog-box .dialog-message-list p span:last-child {\n  padding: 6px 8px;\n  border-radius: 4px;\n  font-size: 14px;\n  display: inline-block;\n}\n.dialog .dialog-box .dialog-message-list p.message-item-send span:last-child {\n  background: #66FF00;\n  color: #FFFFFF;\n}\n.dialog .dialog-box .dialog-message-list p.message-item-receive span:last-child {\n  background: #FFFFFF;\n}\n.dialog .dialog-box .dialog-textarea {\n  position: absolute;\n  left: 0;\n  right: 0;\n  top: 300px;\n  bottom: 0;\n}\n.dialog .dialog-box .dialog-textarea textarea {\n  width: 100%;\n  height: 100px;\n  outline: none;\n  border: none;\n  background: transparent;\n  border-top: 1px solid #dddddd;\n}\n", ""]);
 
 	// exports
 
@@ -33670,15 +33707,38 @@
 	var MainPanelBody = __webpack_require__(172);
 
 	var MainPanelHead = React.createClass({displayName: "MainPanelHead",
+	    getInitialState:function(){
+	        return {
+	            logo: root.from.get("logo"),
+	            name:root.from.get("name"),
+	            intro: root.from.get("intro")
+	        }
+	    },
 	    render:function(){
+	        var that = this
 	        return (
 	            React.createElement("div", {className: "main-panel-head"}, 
-	                "head"
+	                React.createElement("i", {style: {backgroundImage:'url('+root.baseURL+that.state.logo+')'}}), " ", 
+	                React.createElement("p", null, 
+	                    React.createElement("span", null, that.state.name), React.createElement("br", null), 
+	                    React.createElement("label", null, that.state.intro)
+	                )
+
+
 	            )
 	        )
 	    },
 	    componentDidMount:function(){
+	        _.extend(this,Backbone.Events)
 
+	        var that = this
+	        this.listenTo(root.from,'change',function(){
+	            that.setState({
+	                logo: root.from.get("logo"),
+	                name:root.from.get("name"),
+	                introduce: root.from.get("intro")
+	            })
+	        })
 	    }
 	});
 
@@ -33688,11 +33748,16 @@
 
 	var MainPanelFoot = React.createClass({displayName: "MainPanelFoot",
 	    render:function(){
+	        var that = this
 	        return (
 	            React.createElement("div", {className: "main-panel-foot"}, 
-	                "foot"
+	                React.createElement("i", {className: "fa fa-search btn btn-default", onClick: that.handleClick.bind(that,'search')}), 
+	                React.createElement("i", {className: "fa fa-bell btn btn-default", onClick: that.handleClick.bind(that,'add')})
 	            )
 	        )
+	    },
+	    handleClick:function(name){
+	        root.app.show(name)
 	    }
 	});
 
@@ -33754,7 +33819,7 @@
 
 
 	// module
-	exports.push([module.id, ".main-panel {\n  position: absolute;\n  right: 50px;\n  top: 50px;\n  width: 250px;\n  height: 500px;\n  background: #FFFFFF;\n  border-radius: 3px;\n  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);\n  min-width: 150px;\n  min-height: 300px;\n}\n.main-panel .main-panel-foot {\n  padding: 20px;\n  position: absolute;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  height: 60px;\n  border: 1px solid #f2f2f2;\n}\n.main-panel-head {\n  padding: 20px;\n  position: absolute;\n  left: 0;\n  right: 0;\n  top: 0;\n  height: 60px;\n  border: 1px solid #f2f2f2;\n}\n", ""]);
+	exports.push([module.id, ".main-panel {\n  position: absolute;\n  right: 50px;\n  top: 50px;\n  width: 250px;\n  height: 500px;\n  background: #FFFFFF;\n  border-radius: 3px;\n  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);\n  min-width: 150px;\n  min-height: 300px;\n}\n.main-panel .main-panel-head {\n  position: absolute;\n  left: 0;\n  top: 0;\n  height: 60px;\n  padding: 5px 10px;\n  cursor: pointer;\n}\n.main-panel .main-panel-head i {\n  display: inline-block;\n  height: 50px;\n  width: 50px;\n  background-position: center;\n  background-repeat: no-repeat;\n  background-size: cover;\n  vertical-align: middle;\n}\n.main-panel .main-panel-head p {\n  display: inline-block;\n  width: 160px;\n  vertical-align: middle;\n}\n.main-panel .main-panel-head span {\n  font-size: 14px;\n}\n.main-panel .main-panel-head label {\n  color: #7f7f7f;\n  font-size: 12px;\n  display: inline-block;\n  max-width: 100px;\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n.main-panel .main-panel-foot {\n  padding: 20px 10px;\n  position: absolute;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  height: 60px;\n  border: 1px solid #f2f2f2;\n}\n.main-panel-head {\n  padding: 20px;\n  position: absolute;\n  left: 0;\n  right: 0;\n  top: 0;\n  height: 60px;\n  border: 1px solid #f2f2f2;\n}\n", ""]);
 
 	// exports
 
@@ -33786,16 +33851,20 @@
 	            )
 	        )
 	    }
-	})
-
-
-
-
-
-
+	});
 
 	var MainPanelBody = React.createClass({displayName: "MainPanelBody",
+
+	    getInitialState:function(){
+	        return {
+	            user:root.userMessage.toJSON(),
+	            group:root.groupMessage.toJSON(),
+	            recent:root.recent
+	        }
+	    },
+
 	    render:function(){
+	        var that = this
 	        return (
 	            React.createElement("div", {className: "main-panel-body"}, 
 	                React.createElement(Search, null), 
@@ -33806,8 +33875,8 @@
 	                ), 
 	                React.createElement("div", {className: "wrapper"}, 
 	                    React.createElement("div", {className: "content", ref: "content"}, 
-	                        React.createElement(User, {ref: "user", items: root.userMessage}), 
-	                        React.createElement(Group, {ref: "group", items: root.groupMessage}), 
+	                        React.createElement(User, {ref: "user", user: that.state.user}), 
+	                        React.createElement(Group, {ref: "group", group: that.state.group}), 
 	                        React.createElement(Recent, {ref: "recent"})
 	                    )
 	                )
@@ -33822,43 +33891,81 @@
 	    load:function(){
 
 	    },
-	    componentDidMount:function(){
-	        //this.startReceiveServerPush()
-	    },
+
 	    startReceiveServerPush:function(){
-	        var that = this
+	        var that = this,
+	            obj = {};
+	        obj[root.csrfKey]=root.csrfValue;
+	        obj.from_id = djangoData.user.id
 	        $.ajax({
-	            url:"",
+	            url:root.baseURL+"/get_message/",
+	            data:obj,
+	            type:"POST",
+	            dataType:"json",
 	            success:function(response){
 	                var userMessage=[],
 	                    groupMessage=[],
-	                    usrRequest=[],
+	                    userRequest=[],
 	                    groupRequest=[];
 
 	                _.each(response,function(r){
-	                    var obj = _.without(r,r.type)
-	                    switch (r.type) {
+	                    var obj = _.pick(r,'from_id','from_name','text','type','key','logo')
+	                    switch (r.pushType) {
 	                        case 'user-message':
-	                            userMessage.push(obj);
+	                            //var logo = root.userMessage.get(obj.key).get("logo")
+	                            userMessage.push(filter(obj));
 	                            break;
 
 	                        case 'group-message':
-	                            groupMessage.push(obj);
+	                            groupMessage.push(filter(obj));
 	                            break;
 
-	                        case 'user-request':
-	                            usrRequest.push(obj);
+	                        case 'user-add':
+	                            userRequest.push(obj);
+	                            console.log('user add request')
+	                            console.log(userRequest)
+	                            root.userAddRequest.add(obj)
+	                            console.log(obj)
 	                            break
 
-	                        case 'group-request':
+	                        case 'group-add':
 	                            groupRequest.push(obj)
 	                    }
 	                })
 
-	                that.refs['user'].getMessage(userMessage)
-	                that.refs['group'].getMessage(groupMessage)
+	                function filter(obj){
+	                    return {
+	                        to_id:obj.type+"-"+obj.from_id,
+	                        text:obj.text,
+	                        name:obj.from_name,
+	                        logo:obj.logo,
+	                        messageType:"receive"
+	                    }
+	                }
+
+	                root.userMessage.receiveMessage(userMessage);
+	                root.groupMessage.receiveMessage(groupMessage);
+
+	                that.startReceiveServerPush()
 	            },
 	        })
+	    },
+	    componentDidMount:function(){
+	        _.extend(this,Backbone.Events)
+
+	        var that = this
+	        this.listenTo(root.userMessage,'change',function(){
+	            this.setState({
+	                user:root.userMessage.toJSON()
+	            })
+	        })
+	        this.listenTo(root.groupMessage,'change',function(){
+	            this.setState({
+	                group:root.groupMessage.toJSON()
+	            })
+	        })
+
+	        this.startReceiveServerPush()
 	    }
 	});
 
@@ -33899,7 +34006,7 @@
 
 
 	// module
-	exports.push([module.id, ".main-panel-body {\n  position: absolute;\n  left: 0;\n  right: 0;\n  top: 60px;\n  bottom: 60px;\n}\n.main-panel-body .search {\n  position: relative;\n}\n.main-panel-body .search input {\n  width: 100%;\n  outline: none;\n  border: none;\n  padding-left: 5px;\n  border-top: 1px solid #f2f2f2;\n  border-bottom: 1px solid #f2f2f2;\n  height: 30px;\n  line-height: 30px;\n}\n.main-panel-body .search input:focus {\n  background: #FFFFFF;\n  border-top: 1px solid #99CCFF;\n  border-bottom: 1px solid #99CCFF;\n}\n.main-panel-body .search .close {\n  position: absolute;\n  right: 10px;\n  top: 9px;\n}\n.main-panel-body .title {\n  border-bottom: 1px solid #f2f2f2;\n}\n.main-panel-body .title span {\n  display: inline-block;\n  text-align: center;\n  height: 40px;\n  line-height: 40px;\n  font-size: 18px;\n  color: #dddddd;\n  width: 33%;\n  cursor: pointer;\n}\n.main-panel-body .title span:hover {\n  color: #00b3ee;\n}\n.main-panel-body .wrapper {\n  position: absolute;\n  top: 70px;\n  bottom: 0;\n  left: 0;\n  right: 0;\n  overflow-x: hidden;\n  overflow-y: auto;\n}\n.main-panel-body .content {\n  width: 750px;\n  position: absolute;\n}\n.main-panel-body .content p {\n  padding: 5px 10px;\n  cursor: pointer;\n}\n.main-panel-body .content p.active {\n  background: #fdeba8;\n  line-height: 50px;\n}\n.main-panel-body .content p.active i,\n.main-panel-body .content p.active span {\n  font-size: 20px;\n}\n.main-panel-body .content .user,\n.main-panel-body .content .group,\n.main-panel-body .content .recent {\n  width: 250px;\n  display: inline-block;\n  vertical-align: top;\n}\n", ""]);
+	exports.push([module.id, ".main-panel-body {\n  position: absolute;\n  left: 0;\n  right: 0;\n  top: 60px;\n  bottom: 60px;\n}\n.main-panel-body .search {\n  position: relative;\n}\n.main-panel-body .search input {\n  width: 100%;\n  outline: none;\n  border: none;\n  padding-left: 5px;\n  border-top: 1px solid #f2f2f2;\n  border-bottom: 1px solid #f2f2f2;\n  height: 30px;\n  line-height: 30px;\n}\n.main-panel-body .search input:focus {\n  background: #FFFFFF;\n  border-top: 1px solid #99CCFF;\n  border-bottom: 1px solid #99CCFF;\n}\n.main-panel-body .search .close {\n  position: absolute;\n  right: 10px;\n  top: 9px;\n}\n.main-panel-body .title {\n  border-bottom: 1px solid #f2f2f2;\n}\n.main-panel-body .title span {\n  display: inline-block;\n  text-align: center;\n  height: 40px;\n  line-height: 40px;\n  font-size: 18px;\n  color: #dddddd;\n  width: 33%;\n  cursor: pointer;\n}\n.main-panel-body .title span:hover {\n  color: #00b3ee;\n}\n.main-panel-body .wrapper {\n  position: absolute;\n  top: 70px;\n  bottom: 0;\n  left: 0;\n  right: 0;\n  overflow-x: hidden;\n  overflow-y: auto;\n}\n.main-panel-body .content {\n  width: 750px;\n  position: absolute;\n}\n.main-panel-body .content p {\n  padding: 5px 10px;\n  cursor: pointer;\n}\n.main-panel-body .content p i {\n  display: inline-block;\n  height: 30px;\n  width: 30px;\n  background-position: center;\n  background-repeat: no-repeat;\n  background-size: cover;\n  vertical-align: middle;\n}\n.main-panel-body .content p span,\n.main-panel-body .content p label {\n  vertical-align: middle;\n}\n.main-panel-body .content p span {\n  font-size: 14px;\n}\n.main-panel-body .content p label {\n  color: #7f7f7f;\n  font-size: 12px;\n  display: inline-block;\n  max-width: 100px;\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n.main-panel-body .content p.active {\n  background: #fdeba8;\n  line-height: 50px;\n}\n.main-panel-body .content p.active i {\n  height: 46px;\n  width: 46px;\n}\n.main-panel-body .content p.active span {\n  font-size: 18px;\n}\n.main-panel-body .content p.active label {\n  font-size: 14px;\n}\n.main-panel-body .content .user,\n.main-panel-body .content .group,\n.main-panel-body .content .recent {\n  width: 250px;\n  display: inline-block;\n  vertical-align: top;\n}\n", ""]);
 
 	// exports
 
@@ -33919,13 +34026,6 @@
 
 	var User = React.createClass({displayName: "User",
 
-	    getInitialState:function(){
-
-
-	        return {
-	            users:this.props.items.toJSON()
-	        }
-	    },
 
 	    get:function(i){
 	        return _.find(this.state.users,function(obj){
@@ -33936,9 +34036,13 @@
 
 	    render:function(){
 	        var that = this;
-	        var nodes = this.state.users.map(function(g){
+	        var nodes = this.props.user.map(function(g){
 	            return (
-	                React.createElement("p", {onClick: that.pick.bind(that,g.id), ref: 'user-item-'+g.id, key: 'user-item-'+g.id}, React.createElement("i", {className: "fa fa-user"}), " ", g.name)
+	                React.createElement("p", {className: g.active, onClick: that.pick.bind(that,g.id), ref: 'user-item-'+g.id, key: 'user-item-'+g.id}, 
+	                    React.createElement("i", {style: {backgroundImage:'url('+root.baseURL+g.logo+')'}}), " ", 
+	                    React.createElement("span", null, g.name), "  ", 
+	                    React.createElement("label", null, g.intro)
+	                )
 	            )
 	        });
 
@@ -33950,13 +34054,7 @@
 	        )
 	    },
 
-	    pick:function(i){
-	        if(this.picked){
-	            this.picked.removeClass("active");
-	        }
-	        this.picked = $(ReactDOM.findDOMNode(this.refs['user-item-'+i]) ).addClass("active");
-
-
+	    pick:function(id){
 	        var that = this;
 
 	        that.dbclick = that.dbclick ? that.dbclick : 0;
@@ -33966,42 +34064,17 @@
 	            that.dbclick=0
 	        },500);
 	        if(that.dbclick==2){
-	            root.event.trigger("add-dialog",{"type":"user",id:i});
-	            root.event.trigger("add-recent",{"type":"user",id:i})
+	            var model = root.userMessage.get(id)
+	            root.to.set(model.toJSON())
 	        }
 	    },
 
-	    getMessage:function(mes){
-	        var users = this.state.users.map(function(user){
-	            var friend = _.find(mes,function(f){
-	                return f.id == user.id && f.type == user.type
-	            });
-	            if(friend){
-	                user.message = user.message.concat(friend.message);
-	                user.unread = user.unread + user.message.length;
-	            }
-
-	            return user
-	        });
-	        root.event.trigger("dialog-receive-data",users)
-	        this.setState({
-	            users:users
-	        })
-	    },
-
-	    passData:function(){
-
-	    },
 
 	    componentDidMount:function(){
 	        _.extend(this,Backbone.Events)
-
 	        var that = this
 	        this.listenTo(root.userMessage,'change',function(m){
-	            var c = root.userMessage.toJSON()
-	            that.setState({
-	                users:c
-	            })
+	            console.log('user.js liston list change')
 	        })
 	    }
 	});
@@ -34019,23 +34092,13 @@
 	    $ = __webpack_require__(162);
 
 	var Group = React.createClass({displayName: "Group",
-	    getInitialState:function(){
-	        return {
-	            group:this.props.items.toJSON()
-	        }
-	    },
 
-	    get:function(i){
-	        return _.find(this.state.group,function(obj){
-	            return obj.id == i
-	        })
-	    },
 
 	    render:function(){
 	        var that = this
-	        var nodes = this.state.group.map(function(g){
+	        var nodes = this.props.group.map(function(g){
 	            return (
-	                React.createElement("p", {onClick: that.pick.bind(that,g.id), ref: 'user-item-'+g.id, key: 'group-item-'+g.id}, React.createElement("i", {className: "fa fa-group", id: g.id}), " ", g.name)
+	                React.createElement("p", {className: g.active, onClick: that.pick.bind(that,g.id), ref: 'user-item-'+g.id, key: 'group-item-'+g.id}, React.createElement("i", {className: "fa fa-group", id: g.id}), " ", g.name)
 	            )
 	        })
 
@@ -34046,11 +34109,8 @@
 	            )
 	        )
 	    },
-	    pick:function(i,e){
-	        if(this.picked){
-	            this.picked.removeClass("active")
-	        }
-	        this.picked = $(ReactDOM.findDOMNode(this.refs['user-item-'+i]) ).addClass("active")
+	    pick:function(id,e){
+
 
 
 	        var that = this
@@ -34059,39 +34119,19 @@
 	        setTimeout(function(){
 	            that.dbclick=0
 	        },500)
-	        if(that.dbclick==2){
-	            root.event.trigger("add-dialog",that.get(i));
-	            root.event.trigger("add-recent",that.get(i));
+	        if(that.dbclick==2) {
+	            var model = root.groupMessage.get(id)
+	            root.to.set(model.toJSON())
 	        }
+
 	    },
 
-	    getMessage:function(mes){
-	        var group = this.state.group.map(function(g){
-	            var friend = _.find(mes,function(f){;
-	                return f.id == g.id && f.type == g.id
-	            });
-
-	            if(friend){
-	                g.message = g.message.concat(friend.message);
-	                g.unread = g.message.length
-	            }
-
-	            return group
-	        });
-	        this.setState({
-	            group:group
-	        })
-	    },
 	    componentDidMount:function(){
 	        _.extend(this,Backbone.Events)
 
 	        var that = this
 	        this.listenTo(root.groupMessage,'change',function(m){
-	            console.log('change')
-	            var c = root.groupMessage.toJSON()
-	            that.setState({
-	                group:c
-	            })
+	            console.log('group.js liston to c change')
 	        })
 	    }
 
@@ -34114,7 +34154,7 @@
 
 	    getInitialState:function(){
 	        return {
-	            items:[]
+	            items:root.dialogList.toJSON()
 	        }
 	    },
 
@@ -34126,7 +34166,8 @@
 	            return (
 	                React.createElement("p", {
 	                    onClick: that.handleClick.bind(that,{type:item.type,id:item.id}), 
-	                    ref: item.type+"-item-"+item.id
+	                    ref: item.type+"-item-"+item.id, 
+	                    key: item.type+"-item-"+item.id
 	                    }, 
 	                    React.createElement("i", {className: "fa fa-user"}), 
 	                    " ", 
@@ -34191,13 +34232,332 @@
 
 	        })
 	    }
-
-
-
-
 	})
 
 	module .exports = Recent
+
+/***/ },
+/* 178 */
+/***/ function(module, exports, __webpack_require__) {
+
+	/**
+	 * Created by xiaoxiaosu on 2016/2/20.
+	 */
+	    __webpack_require__(179);
+	    __webpack_require__(181)
+	var React = __webpack_require__(5),
+	    ReactDOM = __webpack_require__(165),
+	    _ = __webpack_require__(163),
+	    $ = __webpack_require__(162);
+
+	var SearchPanel = React.createClass({displayName: "SearchPanel",
+	    getInitialState:function(){
+	        return {
+	            display:"none",
+	            member:[],
+	            group:[]
+	        }
+	    },
+	    render:function(){
+	        var that = this
+
+	        var friendNode = this.state.member.map(function(m,i){
+	            return (
+	                React.createElement(MemberItem, {name: m.name, id: m.id, logo: m.logo, isFriend: m.isFriend, key: "member-"+m.id})
+	            )
+	        })
+
+	        var groupNode = this.state.group.map(function(g){
+	            return (
+	                React.createElement("li", null, g.name)
+	            )
+	        })
+	        return (
+	            React.createElement("div", {className: "search-panel", style: {display:that.state.display}}, 
+	                React.createElement("h3", null, "搜索好友"), 
+	                React.createElement("i", {className: "fa fa-close close fa-2x", onClick: that.hide}), 
+	                React.createElement("div", {className: "search-input"}, 
+	                    React.createElement("input", {className: "inp"}), 
+	                    React.createElement("button", {className: "btn btn-info"}, "搜索")
+	                ), 
+	                React.createElement("div", {className: "search-content"}, 
+	                    React.createElement("div", {className: "search-friend"}, 
+	                        React.createElement("h3", null, "好友"), 
+	                        React.createElement("ul", null, friendNode)
+	                    ), 
+	                    React.createElement("div", {className: "search-group"}, 
+	                        React.createElement("h3", null, "群"), 
+	                        React.createElement("ul", null, groupNode)
+	                    )
+	                )
+	            )
+	        )
+	    },
+	    show:function(){
+	        this.setState({
+	            display:"block"
+	        })
+
+
+	        if(!this.state.member.length){
+	            var that = this
+	            $.ajax({
+	                url:root.baseURL+"/get_member/",
+	                dataType:"json",
+	                success:function(response){
+	                    response = response.map(function(obj){
+	                        obj.isFriend = root.userMessage.get('user-'+obj.id) ? 1 : 0
+	                        return obj
+	                    })
+	                    that.setState({
+	                        member:response
+	                    })
+	                }
+	            })
+	        }
+	    },
+	    hide:function(){
+	        this.setState({
+	            display:"none"
+	        })
+	    }
+	})
+
+	var MemberItem = React.createClass({displayName: "MemberItem",
+	    getInitialState:function(){
+	        return {
+	            text:this.props.isFriend?"已是好友":"发送请求"
+	        }
+	    },
+	    render:function(){
+	        return (
+	            React.createElement("li", null, 
+	                React.createElement("i", {style: {backgroundImage:'url('+root.baseURL+this.props.logo+')'}}), 
+	                React.createElement("span", null, this.props.name), 
+	                React.createElement("button", {className: "btn btn-default", onClick: this.handleClick}, this.state.text)
+	            )
+	        )
+	    },
+	    componentWillReceiveProps:function(nextProps){
+	        //if(nextProps.isFriend){
+	        //    this.setState({
+	        //        text:"已是好友"
+	        //    })
+	        //}else{
+	        //    this.setState({
+	        //        text:"被拒绝，点击再次添加"
+	        //    })
+	        //}
+	    },
+	    handleClick:function(){
+	        if(this.props.isFriend){
+	            root.to.set('id',"user-"+this.props.id)
+	        }else{
+	            var that = this,
+	            data={
+	                from_name:root.from.get("name"),
+	                from_id:root.from.get("id"),
+	                to_name:that.props.name,
+	                to_id:that.props.id,
+	                type:"user"
+	            };
+	            data[root.csrfKey] = root.csrfValue
+	            $.ajax({
+	                url:root.baseURL+"/send_add/",
+	                type:"POST",
+	                data:data,
+	                success:function(response){
+	                    that.setState({
+	                        text:"已发送"
+	                    })
+	                }
+	            })
+	        }
+	    }
+	})
+
+	module.exports = SearchPanel
+
+/***/ },
+/* 179 */
+/***/ function(module, exports, __webpack_require__) {
+
+	// style-loader: Adds some css to the DOM by adding a <style> tag
+
+	// load the styles
+	var content = __webpack_require__(180);
+	if(typeof content === 'string') content = [[module.id, content, '']];
+	// add the styles to the DOM
+	var update = __webpack_require__(4)(content, {});
+	if(content.locals) module.exports = content.locals;
+	// Hot Module Replacement
+	if(false) {
+		// When the styles change, update the <style> tags
+		if(!content.locals) {
+			module.hot.accept("!!./../../node_modules/css-loader/index.js!./../../node_modules/less-loader/index.js!./search-panel.less", function() {
+				var newContent = require("!!./../../node_modules/css-loader/index.js!./../../node_modules/less-loader/index.js!./search-panel.less");
+				if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+				update(newContent);
+			});
+		}
+		// When the module is disposed, remove the <style> tags
+		module.hot.dispose(function() { update(); });
+	}
+
+/***/ },
+/* 180 */
+/***/ function(module, exports, __webpack_require__) {
+
+	exports = module.exports = __webpack_require__(3)();
+	// imports
+
+
+	// module
+	exports.push([module.id, ".search-panel {\n  width: 800px;\n  height: 500px;\n  position: absolute;\n  left: 50%;\n  top: 50%;\n  margin-left: -400px;\n  margin-top: -250px;\n  background: #FFFFFF;\n  border-radius: 5px;\n  box-shadow: 0 0 5px #dddddd inset,0 0 5px #dddddd;\n}\n.search-panel > h3 {\n  height: 50px;\n  line-height: 50px;\n  font-size: 18px;\n  background: #f8f8f8;\n  color: #999999;\n  text-align: center;\n  border-bottom: 1px solid #e5e5e7;\n}\n.search-panel > i {\n  display: inline-block;\n  position: absolute;\n  top: 5px;\n  right: 0;\n  width: 40px;\n  height: 40px;\n  font-weight: 100;\n  line-height: 40px;\n  border-radius: 50%;\n  text-align: center;\n}\n.search-panel > i:hover {\n  background: #dddddd;\n}\n.search-panel .search-input {\n  height: 70px;\n  padding: 20px;\n  border-bottom: 1px solid #e5e5e7;\n}\n.search-panel .search-content {\n  height: 378px;\n  font-size: 0;\n}\n.search-panel .search-content div {\n  width: 399px;\n  height: 100%;\n  overflow: auto;\n  display: inline-block;\n  font-size: 12px;\n}\n.search-panel .search-content div:first-child {\n  border-right: 1px solid #dddddd;\n}\n.search-panel .search-content div > h3 {\n  height: 30px;\n  line-height: 30px;\n  font-size: 14px;\n  color: #999999;\n  background: #FFFFFF;\n  text-align: center;\n}\n.search-panel .search-content div > ul {\n  width: 360px;\n  margin: 0 auto;\n}\n.search-panel .search-content div > ul li {\n  width: 120px;\n  float: left;\n  height: 120px;\n}\n.search-panel .search-content div > ul li i,\n.search-panel .search-content div > ul li span,\n.search-panel .search-content div > ul li button {\n  display: block;\n  width: 100px;\n  margin: 0 auto;\n  text-align: center;\n}\n.search-panel .search-content div > ul li i {\n  height: 60px;\n  background-size: 100px 60px ;\n}\n", ""]);
+
+	// exports
+
+
+/***/ },
+/* 181 */
+/***/ function(module, exports, __webpack_require__) {
+
+	// style-loader: Adds some css to the DOM by adding a <style> tag
+
+	// load the styles
+	var content = __webpack_require__(182);
+	if(typeof content === 'string') content = [[module.id, content, '']];
+	// add the styles to the DOM
+	var update = __webpack_require__(4)(content, {});
+	if(content.locals) module.exports = content.locals;
+	// Hot Module Replacement
+	if(false) {
+		// When the styles change, update the <style> tags
+		if(!content.locals) {
+			module.hot.accept("!!./../node_modules/css-loader/index.js!./../node_modules/less-loader/index.js!./button.less", function() {
+				var newContent = require("!!./../node_modules/css-loader/index.js!./../node_modules/less-loader/index.js!./button.less");
+				if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+				update(newContent);
+			});
+		}
+		// When the module is disposed, remove the <style> tags
+		module.hot.dispose(function() { update(); });
+	}
+
+/***/ },
+/* 182 */
+/***/ function(module, exports, __webpack_require__) {
+
+	exports = module.exports = __webpack_require__(3)();
+	// imports
+
+
+	// module
+	exports.push([module.id, ".btn {\n  display: inline-block;\n  text-align: center;\n  font-size: 14px;\n  border-radius: 3px;\n  cursor: pointer;\n  vertical-align: middle;\n  line-height: 1;\n  padding: 7px 15px;\n  border: 1px solid transparent;\n}\n.btn-info {\n  color: #FFF;\n  background: #72bbff;\n}\n.btn-info:hover {\n  background: #589fff;\n}\n.btn-default {\n  color: #666;\n  border-color: #ccc;\n  background: #FFF;\n}\n.btn-default:hover {\n  background: #dddddd;\n}\n.inp {\n  width: 250px;\n  height: 30px;\n  font-size: 14px;\n  display: inline-block;\n  color: #333;\n  vertical-align: top;\n  outline: none;\n  border: 1px solid transparent;\n  padding-left: 5px;\n  line-height: 28px;\n  border-color: #f2f2f2;\n}\n.inp:hover {\n  border-color: #72bbff;\n}\n.inp:focus {\n  border-color: #72bbff;\n}\n", ""]);
+
+	// exports
+
+
+/***/ },
+/* 183 */
+/***/ function(module, exports, __webpack_require__) {
+
+	/**
+	 * Created by xiaoxiaosu on 2016/2/23.
+	 */
+	    __webpack_require__(184);
+	    __webpack_require__(181)
+	var React = __webpack_require__(5),
+	    ReactDOM = __webpack_require__(165),
+	    _ = __webpack_require__(163),
+	    $ = __webpack_require__(162);
+
+	var AddPanel = React.createClass({displayName: "AddPanel",
+	    mixins:[root.basicMixin],
+	    getInitialState:function(){
+	        return {
+	            items:root.userAddRequest.toJSON(),
+	        }
+	    },
+	    render:function(){
+	        var nodes = this.state.items.map(function(item,i){
+	            return (
+	                React.createElement(AddItem, {name: item.from_name, key: "additem-"+i, id: item.from_id})
+	            )
+	        })
+	        return (
+	            React.createElement("div", {className: "add-panel", style: {display:this.state.display}}, 
+	                React.createElement("h3", null, "添加为好友"), 
+	                React.createElement("i", {className: "fa fa-close fa-2x", onClick: this.hide}), 
+	                React.createElement("ul", null, 
+	                    nodes
+	                )
+	            )
+	        )
+	    },
+	    componentDidMount:function(){
+	        var that = this
+	        this.listenTo(root.userAddAccept,'add change remove reset',function(){
+	            that.setState({
+	                items : root.userAddAccept.toJSON()
+	            })
+	        })
+	    }
+	})
+
+	var AddItem = React.createClass({displayName: "AddItem",
+	    render:function(){
+	        return (
+	            React.createElement("li", null, 
+	                React.createElement("p", null, this.props.name, "请求添加为好友"), 
+	                React.createElement("button", {className: "btn btn-info"}, "接受"), 
+	                React.createElement("button", {className: "btn btn-default"}, "拒绝")
+	            )
+	        )
+	    }
+	})
+
+	module.exports = AddPanel
+
+/***/ },
+/* 184 */
+/***/ function(module, exports, __webpack_require__) {
+
+	// style-loader: Adds some css to the DOM by adding a <style> tag
+
+	// load the styles
+	var content = __webpack_require__(185);
+	if(typeof content === 'string') content = [[module.id, content, '']];
+	// add the styles to the DOM
+	var update = __webpack_require__(4)(content, {});
+	if(content.locals) module.exports = content.locals;
+	// Hot Module Replacement
+	if(false) {
+		// When the styles change, update the <style> tags
+		if(!content.locals) {
+			module.hot.accept("!!./../../node_modules/css-loader/index.js!./../../node_modules/less-loader/index.js!./add-panel.less", function() {
+				var newContent = require("!!./../../node_modules/css-loader/index.js!./../../node_modules/less-loader/index.js!./add-panel.less");
+				if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+				update(newContent);
+			});
+		}
+		// When the module is disposed, remove the <style> tags
+		module.hot.dispose(function() { update(); });
+	}
+
+/***/ },
+/* 185 */
+/***/ function(module, exports, __webpack_require__) {
+
+	exports = module.exports = __webpack_require__(3)();
+	// imports
+
+
+	// module
+	exports.push([module.id, ".add-panel {\n  width: 400px;\n  height: 400px;\n  position: absolute;\n  left: 50%;\n  top: 100px;\n  margin-left: -250px;\n  background: #FFFFFF;\n  border-radius: 5px;\n  box-shadow: 0 0 5px #dddddd inset,0 0 5px #dddddd;\n}\n.add-panel > h3 {\n  height: 50px;\n  line-height: 50px;\n  font-size: 18px;\n  background: #f8f8f8;\n  color: #999999;\n  text-align: center;\n  border-bottom: 1px solid #e5e5e7;\n}\n.add-panel > i {\n  display: inline-block;\n  position: absolute;\n  top: 5px;\n  right: 0;\n  width: 40px;\n  height: 40px;\n  font-weight: 100;\n  line-height: 40px;\n  border-radius: 50%;\n  text-align: center;\n  cursor: pointer;\n}\n.add-panel > i:hover {\n  background: #dddddd;\n}\n.add-panel li {\n  height: 30px;\n  border-bottom: 1px solid #dddddd;\n  font-size: 0;\n}\n.add-panel li p,\n.add-panel li button {\n  display: inline-block;\n  font-size: 14px;\n  vertical-align: middle;\n}\n.add-panel li p {\n  width: 200px;\n  padding: 0 20px;\n  line-height: 30px;\n}\n.add-panel li button {\n  width: 100px;\n  height: 30px;\n}\n", ""]);
+
+	// exports
+
 
 /***/ }
 /******/ ]);

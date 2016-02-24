@@ -21,16 +21,20 @@ var Search = React.createClass({
             </div>
         )
     }
-})
-
-
-
-
-
-
+});
 
 var MainPanelBody = React.createClass({
+
+    getInitialState:function(){
+        return {
+            user:root.userMessage.toJSON(),
+            group:root.groupMessage.toJSON(),
+            recent:root.recent
+        }
+    },
+
     render:function(){
+        var that = this
         return (
             <div className="main-panel-body">
                 <Search/>
@@ -41,8 +45,8 @@ var MainPanelBody = React.createClass({
                 </div>
                 <div className="wrapper">
                     <div className="content" ref="content">
-                        <User ref='user' items={root.userMessage}/>
-                        <Group ref='group' items={root.groupMessage}/>
+                        <User ref='user' user={that.state.user}/>
+                        <Group ref='group' group={that.state.group}/>
                         <Recent ref='recent'/>
                     </div>
                 </div>
@@ -57,43 +61,81 @@ var MainPanelBody = React.createClass({
     load:function(){
 
     },
-    componentDidMount:function(){
-        //this.startReceiveServerPush()
-    },
+
     startReceiveServerPush:function(){
-        var that = this
+        var that = this,
+            obj = {};
+        obj[root.csrfKey]=root.csrfValue;
+        obj.from_id = djangoData.user.id
         $.ajax({
-            url:"",
+            url:root.baseURL+"/get_message/",
+            data:obj,
+            type:"POST",
+            dataType:"json",
             success:function(response){
                 var userMessage=[],
                     groupMessage=[],
-                    usrRequest=[],
+                    userRequest=[],
                     groupRequest=[];
 
                 _.each(response,function(r){
-                    var obj = _.without(r,r.type)
-                    switch (r.type) {
+                    var obj = _.pick(r,'from_id','from_name','text','type','key','logo')
+                    switch (r.pushType) {
                         case 'user-message':
-                            userMessage.push(obj);
+                            //var logo = root.userMessage.get(obj.key).get("logo")
+                            userMessage.push(filter(obj));
                             break;
 
                         case 'group-message':
-                            groupMessage.push(obj);
+                            groupMessage.push(filter(obj));
                             break;
 
-                        case 'user-request':
-                            usrRequest.push(obj);
+                        case 'user-add':
+                            userRequest.push(obj);
+                            console.log('user add request')
+                            console.log(userRequest)
+                            root.userAddRequest.add(obj)
+                            console.log(obj)
                             break
 
-                        case 'group-request':
+                        case 'group-add':
                             groupRequest.push(obj)
                     }
                 })
 
-                that.refs['user'].getMessage(userMessage)
-                that.refs['group'].getMessage(groupMessage)
+                function filter(obj){
+                    return {
+                        to_id:obj.type+"-"+obj.from_id,
+                        text:obj.text,
+                        name:obj.from_name,
+                        logo:obj.logo,
+                        messageType:"receive"
+                    }
+                }
+
+                root.userMessage.receiveMessage(userMessage);
+                root.groupMessage.receiveMessage(groupMessage);
+
+                that.startReceiveServerPush()
             },
         })
+    },
+    componentDidMount:function(){
+        _.extend(this,Backbone.Events)
+
+        var that = this
+        this.listenTo(root.userMessage,'change',function(){
+            this.setState({
+                user:root.userMessage.toJSON()
+            })
+        })
+        this.listenTo(root.groupMessage,'change',function(){
+            this.setState({
+                group:root.groupMessage.toJSON()
+            })
+        })
+
+        this.startReceiveServerPush()
     }
 });
 

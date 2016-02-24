@@ -1,0 +1,59 @@
+.add-panel{
+  width: 400px;
+  height: 400px;
+  position: absolute;
+  left: 50%;
+  top: 100px;
+  margin-left: -250px;
+  background: #FFFFFF;
+  border-radius: 5px;
+  box-shadow: 0 0 5px #dddddd inset,0 0 5px #dddddd;
+
+   >h3{
+    height: 50px;
+    line-height: 50px;
+    font-size: 18px;
+    background: #f8f8f8;
+    color: #999999;
+    text-align: center;
+    border-bottom: 1px solid #e5e5e7;
+  }
+
+  >i{
+    display: inline-block;
+    position: absolute;
+    top: 5px;
+    right: 0;
+    width: 40px;
+    height: 40px;
+    font-weight: 100;
+    line-height: 40px;
+    border-radius: 50%;
+    text-align: center;
+    cursor: pointer;
+    &:hover{
+      background: #dddddd;
+    }
+
+  }
+
+  li{
+      height: 30px;
+      border-bottom: 1px solid #dddddd;
+      font-size: 0;
+      p,button{
+        display: inline-block;
+        font-size: 14px;
+        vertical-align: middle;
+      }
+      p{
+        width: 200px;
+        padding: 0 20px;
+        line-height: 30px;
+      }
+      button{
+        width: 100px;
+        height: 30px;
+      }
+    }
+}

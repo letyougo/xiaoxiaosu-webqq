@@ -9,7 +9,7 @@ var Recent = React.createClass({
 
     getInitialState:function(){
         return {
-            items:[]
+            items:root.dialogList.toJSON()
         }
     },
 
@@ -22,6 +22,7 @@ var Recent = React.createClass({
                 <p
                     onClick={that.handleClick.bind(that,{type:item.type,id:item.id})}
                     ref={item.type+"-item-"+item.id}
+                    key={item.type+"-item-"+item.id}
                     >
                     <i className="fa fa-user"/>
                     &nbsp;
@@ -86,10 +87,6 @@ var Recent = React.createClass({
 
         })
     }
-
-
-
-
 })
 
 module .exports = Recent

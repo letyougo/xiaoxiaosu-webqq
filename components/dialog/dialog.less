@@ -6,13 +6,14 @@
   top: 100px;
   margin-left: -300px;
   border-radius: 3px;
-  box-shadow: 0 0 10px #f2f2f2;
+  box-shadow: 0 0 10px #dddddd;
 
   .dialog-list{
     width: 150px;
     height: 100%;
     overflow-y: auto;
     position: absolute;
+    border-right: 1px solid #dddddd;
     left: 0;
     top: 0;
 
@@ -20,8 +21,17 @@
       line-height: 40px;
       border-bottom: 1px solid #f2f2f2;
       border-right: 1px solid #f2f2f2;
-      text-indent: 40px;
       position: relative;
+
+      i{
+        width: 30px;
+        height: 30px;
+        display: inline-block;
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        vertical-align: middle;
+      }
 
       &.active{
         background: rgb(253,235,168);
@@ -60,6 +70,7 @@
     height: 100%;
     left: 150px;
     top: 0;
+    background: #FFFFFF;
     position: absolute;
 
     .dialog-message-list{
@@ -67,6 +78,39 @@
       left: 0;
       right: 0;
       height: 300px;
+      padding: 20px;
+      overflow: auto;
+      p{
+        margin-bottom: 5px;
+        i{
+          width: 30px;
+          height: 30px;
+          display: inline-block;
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+          vertical-align: middle;
+        }
+        span:last-child{
+          padding: 6px 8px;
+          border-radius: 4px;
+          font-size: 14px;
+          display: inline-block;
+        }
+
+        &.message-item-send{
+          span:last-child{
+            background: #66FF00;
+             color: #FFFFFF;
+          }
+        }
+        &.message-item-receive{
+          span:last-child{
+            background: #FFFFFF;
+
+          }
+        }
+      }
     }
 
     .dialog-textarea{
@@ -79,7 +123,11 @@
 
       textarea{
         width: 100%;
-        height: 150px;
+        height: 100px;
+        outline: none;
+        border: none;
+        background: transparent;
+        border-top: 1px solid #dddddd;
       }
     }
   }

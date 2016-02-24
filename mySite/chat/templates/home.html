@@ -14,20 +14,24 @@
 </p>
 {% csrf_token %}
 <div id="root"></div>
-
+{{ member.logo.url }}
 </body>
 <script>
      window.djangoData={
         user:{
-            name:"{{ request.user.username }}",
-            id : "{{ request.user.member_user.id }}"
+            name:"{{ member.user.username }}",
+            id : "{{ member.id }}",
+            intro : "{{ member.intro }}",
+            logo:"{{ member.logo.url }}"
         },
         friend:((function(){
             var f=[]
             {% for f in friend %}
                 f.push({
                     name:"{{ f.user }}",
-                    id:"{{ f.id }}"
+                    id:"{{ f.id }}",
+                    intro : "{{ f.intro }}",
+                    logo:"{{ f.logo.url }}"
                 })
             {% endfor %}
             return f

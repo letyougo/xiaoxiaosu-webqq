@@ -59,15 +59,47 @@
         width: 750px;
         position: absolute;
         p{
+            i{
+              display: inline-block;
+              height: 30px;
+              width: 30px;
+              background-position: center;
+              background-repeat: no-repeat;
+              background-size:cover;
+              vertical-align: middle;
+            }
             padding: 5px 10px;
             cursor: pointer;
+
+            span,label{
+              vertical-align: middle;
+            }
+            span{
+              font-size: 14px;
+            }
+            label {
+              color: rgb(127,127,127);
+              font-size: 12px;
+              display: inline-block;
+              max-width: 100px;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
         }
         p.active{
             background: rgb(253,235,168);
             line-height: 50px;
 
-            i,span{
-                font-size: 20px;
+            i{
+              height: 46px;
+              width: 46px;
+            }
+            span{
+                font-size: 18px;
+            }
+            label{
+                font-size: 14px;
             }
         }
         .user,.group,.recent{

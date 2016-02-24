@@ -9,7 +9,8 @@ from django.contrib.auth.models import User
 
 class Member(models.Model):
     user = models.OneToOneField(User)
-    logo = models.ImageField(upload_to='upload_img',null=True,blank=True)
+    logo = models.ImageField(upload_to='upload_img',null=True,blank=True,default='upload_img/logo1.jpg')
+    intro = models.CharField(max_length=64,null=True,blank=True)
     friend = models.ManyToManyField("self",blank=True,null=True)
 
     def __unicode__(self):
@@ -18,7 +19,7 @@ class Member(models.Model):
     def to_obj(self):
         return dict(
             name = self.user.username,
-            logo = self.logo,
+            logo = self.logo.url,
             id = self.id
         )
 
